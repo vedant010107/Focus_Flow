@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusFlow</title>
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f8ff; /* Light blue background */
+      margin: 0;
+      display: flex;
+    }
+
+    #sidebar {
+      width: 250px;
+      background: #ffffff; /* White background */
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      border-right: 2px solid #007bff;
+    }
+
+    #main {
+      margin-left: 260px;
+      padding: 20px;
+      flex-grow: 1;
+      background: linear-gradient(to bottom right, #e9ecef, #ffffff); /* Gradient background */
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1 {
+      text-align: center;
+      color: #343a40;
+      margin-bottom: 20px;
+    }
+
+    input,
+    button {
+      padding: 10px;
+      margin-top: 10px;
+      width: calc(100% - 22px);
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      transition: border 0.3s;
+    }
+
+    input:focus,
+    button:hover {
+      border: 1px solid #0056b3;
+    }
+
+    button {
+      background: #007bff; /* Button color */
+      color: #fff;
+      cursor: pointer;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    li {
+      background: #ffffff; /* Task list item color */
+      margin: 5px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #whiteboard {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      width: 100%;
+      height: 50vh; /* Set height to 1/2 of the viewport height */
+      background-color: white;
+      cursor: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Pencil_icon.svg/1024px-Pencil_icon.svg.png') 10 10, auto; /* Pencil cursor */
+    }
+
+    .color-palette {
+      margin: 10px 0;
+    }
+
+    .color-box {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      border: 1px solid #ddd;
+      margin-right: 5px;
+    }
+
+    .color-box:hover {
+      border: 2px solid #007bff; /* Highlight color on hover */
+    }
+
+    /* Adding a footer for a clean look */
+    footer {
+      text-align: center;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      position: relative;
+      bottom: 0;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <h2>Menu</h2>
+    <button id="showTasksButton">Show Tasks</button>
+    <button id="showWhiteboardButton">Show Whiteboard</button>
+  </div>
+
+  <div id="main">
+    <h1>FocusFlow</h1>
+    <div id="taskContainer">
+      <input type="text" id="taskInput" placeholder="New Task" />
+      <button id="addTaskButton">Add Task</button>
+      <ul id="taskList"></ul>
+    </div>
+
+    <div id="whiteboardContainer" style="display: none;">
+      <h2>Whiteboard</h2>
+      <div class="color-palette">
+        <div class="color-box" style="background-color: black;" data-color="black"></div>
+        <div class="color-box" style="background-color: red;" data-color="red"></div>
+        <div class="color-box" style="background-color: green;" data-color="green"></div>
+        <div class="color-box" style="background-color: blue;" data-color="blue"></div>
+        <div class="color-box" style="background-color: yellow;" data-color="yellow"></div>
+        <div class="color-box" style="background-color: orange;" data-color="orange"></div>
+        <div class="color-box" style="background-color: purple;" data-color="purple"></div>
+        <div class="color-box" style="background-color: pink;" data-color="pink"></div>
+        <button id="eraserButton">Eraser</button>
+      </div>
+      <canvas id="whiteboard"></canvas>
+    </div>
+
+    <footer>
+      <p>&copy; 2024 FocusFlow App</p>
+    </footer>
+  </div>
+
+  <script>
+    const tasks = [];
+    const taskInput = document.getElementById('taskInput');
+    const addTaskButton = document.getElementById('addTaskButton');
+    const taskList = document.getElementById('taskList');
+    const canvas = document.getElementById('whiteboard');
+    const ctx = canvas.getContext('2d');
+    const whiteboardContainer = document.getElementById('whiteboardContainer');
+    const showTasksButton = document.getElementById('showTasksButton');
+    const showWhiteboardButton = document.getElementById('showWhiteboardButton');
+    const eraserButton = document.getElementById('eraserButton');
+
+    let currentColor = 'black';
+    let drawing = false;
+
+    addTaskButton.addEventListener('click', addTask);
+    showTasksButton.addEventListener('click', showTasks);
+    showWhiteboardButton.addEventListener('click', showWhiteboard);
+    eraserButton.addEventListener('click', useEraser);
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    document.querySelectorAll('.color-box').forEach(box => {
+      box.addEventListener('click', (event) => {
+        currentColor = event.target.dataset.color;
+      });
+    });
+
+    function addTask() {
+      const taskText = taskInput.value.trim();
+      if (!taskText) return;
+
+      const task = {
+        id: Date.now(),
+        text: taskText,
+        elapsedTime: 0,
+        timerInterval: null,
+      };
+
+      tasks.push(task);
+      taskInput.value = '';
+      renderTasks();
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = '';
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span>${task.text} - ${task.elapsedTime}s</span>
+          <button onclick="startTimer(${task.id})">Start Timer</button>
+          <button onclick="stopTimer(${task.id})">Stop Timer</button>
+          <button onclick="removeTask(${task.id})">Remove</button>
+        `;
+        taskList.appendChild(li);
+      });
+    }
+
+    function startTimer(id) {
+      const task = tasks.find(t => t.id === id);
+      if (!task.timerInterval) {
+        task.timerInterval = setInterval(() => {
+          task.elapsedTime++;
+          renderTasks();
+        }, 1000);
+      }
+    }
+
+    function stopTimer(id) {
+      const task = tasks.find(t => t.id === id);
+      clearInterval(task.timerInterval);
+      task.timerInterval = null;
+    }
+
+    function removeTask(id) {
+      const index = tasks.findIndex(task => task.id === id);
+      if (index !== -1) {
+        tasks.splice(index, 1);
+        renderTasks();
+      }
+    }
+
+    function showTasks() {
+      whiteboardContainer.style.display = 'none';
+      document.getElementById('taskContainer').style.display = 'block';
+    }
+
+    function showWhiteboard() {
+      document.getElementById('taskContainer').style.display = 'none';
+      whiteboardContainer.style.display = 'block';
+      resizeCanvas();
+    }
+
+    function resizeCanvas() {
+      canvas.width = whiteboardContainer.clientWidth;
+      canvas.height = whiteboardContainer.clientHeight - 40; // Adjust for other elements
+    }
+
+    function startDrawing(event) {
+      drawing = true;
+      ctx.beginPath();
+      ctx.moveTo(getMousePos(event).x, getMousePos(event).y);
+    }
+
+    function draw(event) {
+      if (drawing) {
+        ctx.lineTo(getMousePos(event).x, getMousePos(event).y);
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    function stopDrawing() {
+      drawing = false;
+      ctx.beginPath();
+    }
+
+    function getMousePos(event) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+    }
+
+    function useEraser() {
+      currentColor = 'white'; // Set color to white to erase
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+
+</html>
